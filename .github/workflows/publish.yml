@@ -1,0 +1,54 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: Publish Release
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  publish:
+    runs-on: ${{ matrix.os.runner }}
+    strategy:
+      matrix:
+        os:
+          - runner: windows-latest
+            runtime_id: win-x64
+          - runner: ubuntu-latest
+            runtime_id: linux-x64
+          - runner: macos-latest
+            runtime_id: osx-x64
+          - runner: macos-latest
+            runtime_id: osx-arm64
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 6.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: DotNET Publish
+      run: dotnet publish -c Release -r ${{ matrix.os.runtime_id }} -p:RuntimeIdentifier=${{ matrix.os.runtime_id }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os.runtime_id }}
+        path: UnityDataTool/bin/Release/net6.0/${{ matrix.os.runtime_id }}/
+
+    - name: Create Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        tag=$(date +%Y%m%d%H%M)
+        gh release create $tag --draft --title $tag
+        gh release upload $tag ${{ matrix.os.runtime_id }}.zip
+        gh release edit $tag --draft=false
